@@ -61,120 +61,39 @@ export async function healthCheck() {
 }
 
 // ---------------------------------------------------------------------------
-// STT / TTS / Translate / Medical — with mock fallback
+// RAG question helper (used by Electron overlay Ask tab)
 // ---------------------------------------------------------------------------
-
-export async function speechToText({ audioBlob, language }) {
-  if (!USE_MOCK) {
-    const formData = new FormData()
-    formData.append('audio', audioBlob)
-    formData.append('language', language)
-    const res = await fetch(`${BASE_URL}/api/stt`, { method: 'POST', body: formData })
-    return res.json()
-  }
-
-  void audioBlob
-  await delay(400)
-  return {
-    text: language === 'en'
-      ? 'I think you should consider taking ibuprofen for the inflammation.'
-      : 'Me duele mucho el pecho cuando respiro profundo.',
-    confidence: 0.94,
-    language,
-  }
-}
-
-export async function textToSpeech({ text, targetLanguage, voice }) {
-  if (!USE_MOCK) {
-    const res = await fetch(`${BASE_URL}/api/tts`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, targetLanguage, voice }),
-    })
-    return res.blob()
-  }
-
-  void text; void targetLanguage; void voice
-  await delay(500)
-  return new Blob([], { type: 'audio/mpeg' })
-}
-
-export async function translate({ text, from, to }) {
-  if (!USE_MOCK) {
-    const res = await fetch(`${BASE_URL}/api/translate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, from, to }),
-    })
-    return res.json()
-  }
-
-  void text
-  await delay(250)
-  return {
-    translated: to === 'en'
-      ? 'My chest hurts a lot when I breathe deeply.'
-      : 'Me duele mucho el pecho cuando respiro profundo.',
-    from,
-    to,
-  }
-}
-
-export async function processMedical({ text, patientLanguage }) {
-  if (!USE_MOCK) {
-    const res = await fetch(`${BASE_URL}/api/process-medical`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, patientLanguage }),
-    })
-    return res.json()
-  }
-
-  void text; void patientLanguage
-  await delay(350)
-  return {
-    simplified: 'Your doctor is checking if your chest pain could be related to your heart or lungs.',
-    terms: [
-      { term: 'Pleuritic chest pain', definition: 'Pain in the chest that gets worse when you breathe in.' },
-      { term: 'Pericarditis', definition: 'Swelling of the thin layer around your heart.' },
-      { term: 'Troponin', definition: 'A blood test that checks if your heart muscle has been damaged.' },
-    ],
-    suggestions: [
-      'Ask your doctor: "Is this something serious?"',
-      'Ask your doctor: "What tests are you ordering and why?"',
-      'Ask your doctor: "What should I watch out for at home?"',
-    ],
-  }
-}
 
 export async function ragQuery({ question, sessionContext }) {
   if (!USE_MOCK) {
-    const res = await fetch(`${BASE_URL}/api/rag/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, sessionContext }),
-    })
-    return res.json()
+    try {
+      const res = await fetch(`${BASE_URL}/api/rag/query`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question, sessionContext }),
+      })
+      if (res.ok) return res.json()
+    } catch {
+      // Fall through to local fallback response.
+    }
   }
 
-  void sessionContext
   await delay(600)
-
-  const q = question.toLowerCase()
-  let answer = 'Based on your visit, this is a common diagnostic step your doctor is taking to make sure everything is okay. If you have more questions, don\'t hesitate to ask your care team.'
+  const q = (question || '').toLowerCase()
+  let answer = 'Based on your visit, this sounds like a common diagnostic step. Ask your care team if you want more detail on why each test is being ordered.'
   if (q.includes('hypertension') || q.includes('blood pressure')) {
-    answer = 'Hypertension means your blood pressure is higher than normal. Your doctor may recommend lifestyle changes like eating less salt, exercising more, and possibly medication to help manage it.'
+    answer = 'Hypertension means blood pressure is consistently high. Doctors usually monitor it over time and may recommend lifestyle changes and medication.'
   } else if (q.includes('troponin') || q.includes('blood test')) {
-    answer = 'Troponin is a protein released when heart muscle is damaged. Your doctor ordered this test to check if your heart is healthy. A normal result is reassuring.'
+    answer = 'Troponin is a blood marker doctors use to check possible heart muscle injury. It helps decide whether chest pain could be heart-related.'
   } else if (q.includes('ekg') || q.includes('ecg') || q.includes('electrocardiogram')) {
-    answer = 'An EKG (electrocardiogram) records the electrical activity of your heart. It\'s a painless test that helps your doctor see if your heart rhythm is normal.'
+    answer = 'An EKG records your heart’s electrical activity. It is quick and painless and helps detect rhythm or heart strain issues.'
   }
 
   return {
     answer,
     sources: [
-      { title: 'MedlinePlus – Patient Health Information', url: 'https://medlineplus.gov' },
-      { title: 'Mayo Clinic – Patient Education', url: 'https://www.mayoclinic.org' },
+      { title: 'MedlinePlus', url: 'https://medlineplus.gov' },
+      { title: 'Mayo Clinic', url: 'https://www.mayoclinic.org' },
     ],
   }
 }

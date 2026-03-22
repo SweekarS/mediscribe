@@ -211,6 +211,52 @@ Respond ONLY with valid JSON:
 
 
 # ---------------------------------------------------------------------------
+# AI Doctor helper — follow-up response based on conversation history
+# ---------------------------------------------------------------------------
+
+async def generate_doctor_response(conversation_history: list) -> str:
+    """
+    Generate a short doctor-style follow-up question from recent context.
+    Used when `toggle_ai_doctor` is enabled in WebSocket flow.
+    """
+    if not conversation_history:
+        return "Can you tell me more about what you're feeling right now?"
+
+    recent = conversation_history[-10:]
+    context = "\n".join(
+        [f"{msg.get('role', 'unknown').upper()}: {msg.get('text', '')}" for msg in recent]
+    )
+
+    prompt = f"""You are an AI doctor assistant in a live consultation.
+
+Based on the recent conversation, provide ONE short, clinically relevant follow-up question.
+
+Recent conversation:
+{context}
+
+Rules:
+- Ask only one question.
+- Keep it concise and clear.
+- Do not diagnose.
+- Return plain text only, no JSON.
+"""
+
+    if not GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY not set — returning fallback AI doctor question")
+        return "Can you describe that symptom in a little more detail?"
+
+    try:
+        response = await _chat(prompt, temperature=0.2, max_tokens=120)
+        cleaned = (response or "").strip()
+        if not cleaned:
+            return "Can you describe when these symptoms started?"
+        return cleaned.splitlines()[0].strip()
+    except Exception as e:
+        logger.error(f"AI doctor response error: {e}")
+        return "Can you tell me when this began?"
+
+
+# ---------------------------------------------------------------------------
 # Session summary — called when session ends
 # ---------------------------------------------------------------------------
 

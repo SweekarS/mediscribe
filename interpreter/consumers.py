@@ -22,17 +22,12 @@ PATIENT → DOCTOR flow:
 import json
 import logging
 import asyncio
-import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 
-from .gemini_client import process_doctor_to_patient, process_patient_to_doctor
+from .gemini_client import process_doctor_to_patient, process_patient_to_doctor, generate_doctor_response
 from .elevenlabs_client import synthesize_speech
 
 logger = logging.getLogger(__name__)
-
-MAX_AUDIO_BYTES = 5 * 1024 * 1024  # 5 MB per audio chunk
-WS_MSG_RATE_LIMIT = 30  # max messages per window
-WS_MSG_RATE_WINDOW = 10  # seconds
 
 
 def _multipart_audio_part(audio_bytes: bytes):
@@ -48,7 +43,8 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
         self._pending_direction = None
         self._pending_language = None
-        self._msg_timestamps = []
+        self.ai_doctor_enabled = False
+        self._conversation_history = []
 
         # Load actual patient language from the session in DB
         from asgiref.sync import sync_to_async
@@ -74,23 +70,7 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
         logger.info(f"WebSocket disconnected: session={self.session_id}, code={close_code}")
 
-    def _is_rate_limited(self) -> bool:
-        now = time.monotonic()
-        self._msg_timestamps = [t for t in self._msg_timestamps if now - t < WS_MSG_RATE_WINDOW]
-        if len(self._msg_timestamps) >= WS_MSG_RATE_LIMIT:
-            return True
-        self._msg_timestamps.append(now)
-        return False
-
     async def receive(self, text_data=None, bytes_data=None):
-        if self._is_rate_limited():
-            await self._send_error("Rate limit exceeded — slow down.")
-            return
-
-        if bytes_data and len(bytes_data) > MAX_AUDIO_BYTES:
-            await self._send_error("Audio chunk too large.")
-            return
-
         if text_data:
             try:
                 payload = json.loads(text_data)
@@ -112,6 +92,14 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
                 text = payload.get("text", "").strip()
                 if text:
                     await self._handle_doctor_message(text, payload.get("patient_language", self.patient_language))
+
+            elif msg_type == "toggle_ai_doctor":
+                self.ai_doctor_enabled = payload.get("enabled", False)
+                logger.info(f"AI Doctor {'enabled' if self.ai_doctor_enabled else 'disabled'} for session {self.session_id}")
+                await self.send(json.dumps({
+                    "type": "ai_doctor_status",
+                    "enabled": self.ai_doctor_enabled,
+                }))
 
             elif msg_type == "ping":
                 await self.send(json.dumps({"type": "pong"}))
@@ -139,16 +127,31 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
         2. Gemini Mode 2 → translate + grammar fix → professional English
         3. Broadcast to doctor
         """
+        logger.info(f"Patient audio received: {len(audio_bytes)} bytes, lang={patient_language}")
         await self.send(json.dumps({"type": "processing", "step": "transcribing", "message": "Listening..."}))
 
-        original_text = await self._transcribe_audio(audio_bytes, patient_language)
+        try:
+            original_text = await self._transcribe_audio(audio_bytes, patient_language)
+        except Exception as e:
+            logger.error(f"STT crashed: {e}", exc_info=True)
+            await self._send_error(f"Transcription failed: {e}")
+            return
+
         if not original_text or len(original_text.strip()) < 2:
+            logger.warning(f"STT returned empty/short: '{original_text}'")
             await self._send_error("Could not understand the audio. Please speak again.")
             return
 
+        logger.info(f"STT result: '{original_text}'")
         await self.send(json.dumps({"type": "processing", "step": "gemini", "message": "Processing..."}))
 
-        result = await process_patient_to_doctor(original_text, patient_language)
+        try:
+            result = await process_patient_to_doctor(original_text, patient_language)
+            logger.info(f"Gemini result: fixed_english='{result.get('fixed_english', '')[:80]}'")
+        except Exception as e:
+            logger.error(f"Gemini patient→doctor crashed: {e}", exc_info=True)
+            await self._send_error(f"Translation failed: {e}")
+            return
 
         await self._save_message(
             direction="patient_to_provider",
@@ -168,6 +171,28 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
                 "patient_language": patient_language,
             },
         )
+
+        # Track conversation for AI Doctor context
+        self._conversation_history.append({
+            "role": "patient",
+            "text": result.get("fixed_english", original_text),
+        })
+
+        # AI Doctor auto-response
+        if self.ai_doctor_enabled:
+            logger.info("AI Doctor enabled — generating response...")
+            try:
+                await self.send(json.dumps({"type": "processing", "step": "gemini", "message": "AI Doctor is thinking..."}))
+                doctor_response = await generate_doctor_response(self._conversation_history)
+                logger.info(f"AI Doctor response: '{doctor_response[:80]}'")
+                if doctor_response:
+                    await self._handle_doctor_message(doctor_response, patient_language)
+                    logger.info("AI Doctor response sent through pipeline successfully")
+            except Exception as e:
+                logger.error(f"AI Doctor auto-response error: {e}", exc_info=True)
+                await self._send_error(f"AI Doctor failed: {e}")
+        else:
+            logger.info(f"AI Doctor disabled (ai_doctor_enabled={self.ai_doctor_enabled})")
 
     async def broadcast_patient_message(self, event):
         await self.send(json.dumps({
@@ -205,23 +230,37 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
         if not text:
             return
 
+        logger.info(f"Doctor message pipeline: '{text[:60]}' → {patient_language}")
         await self.send(json.dumps({"type": "processing", "step": "gemini", "message": "Simplifying & translating..."}))
 
-        result = await process_doctor_to_patient(text, patient_language)
+        try:
+            result = await process_doctor_to_patient(text, patient_language)
+        except Exception as e:
+            logger.error(f"Gemini doctor→patient crashed: {e}", exc_info=True)
+            await self._send_error(f"Translation failed: {e}")
+            return
+
         translated = result.get("translated", "")
         simplified = result.get("simplified", text)
+        logger.info(f"Gemini done: translated='{translated[:60]}'")
 
         await self.send(json.dumps({"type": "processing", "step": "tts", "message": "Generating speech..."}))
 
-        audio_b64, _ = await asyncio.gather(
-            synthesize_speech(translated, patient_language),
-            self._save_message(
-                direction="provider_to_patient",
-                original_text=text,
-                translated_text=translated,
-                medical_flags={"simplified": simplified},
-            ),
-        )
+        try:
+            audio_b64, _ = await asyncio.gather(
+                synthesize_speech(translated, patient_language),
+                self._save_message(
+                    direction="provider_to_patient",
+                    original_text=text,
+                    translated_text=translated,
+                    medical_flags={"simplified": simplified},
+                ),
+            )
+            logger.info(f"TTS done: audio length={len(audio_b64)} chars")
+        except Exception as e:
+            logger.error(f"TTS/save crashed: {e}", exc_info=True)
+            await self._send_error(f"Speech generation failed: {e}")
+            return
 
         await self.channel_layer.group_send(
             self.group_name,
@@ -235,6 +274,9 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
                 "patient_language": patient_language,
             },
         )
+
+        # Track for AI Doctor conversation context
+        self._conversation_history.append({"role": "doctor", "text": text})
 
     async def broadcast_provider_message(self, event):
         await self.send(json.dumps({

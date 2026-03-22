@@ -4,6 +4,7 @@ import BrandMark from './BrandMark'
 
 const navItems = [
   { icon: 'graphic_eq', label: 'Live session', to: '/dashboard', end: true },
+  { icon: 'record_voice_over', label: 'Real-Time Talk', to: '/dashboard/talk' },
   { icon: 'history', label: 'Past visits', to: '/dashboard/history' },
   { icon: 'person', label: 'My info', to: '/dashboard/patients' },
   { icon: 'settings', label: 'Settings', to: '/dashboard/settings' },
