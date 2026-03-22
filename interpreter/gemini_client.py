@@ -9,7 +9,7 @@ Mode 1 — Doctor→Patient (Simplification & Tone):
 Mode 2 — Patient→Doctor (Grammar Recovery & Structuring):
   Raw patient speech (any language) → translated to English → grammar-fixed professional English
 
-Uses OpenRouter API with cheap Gemini model.
+Uses Google Gemini API directly.
 """
 
 import os
@@ -19,9 +19,9 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = os.getenv("OPENROUTER_MODEL", "google/gemini-2.0-flash-001")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 
 LANG_NAMES = {
     "es": "Spanish",
@@ -84,27 +84,31 @@ def _parse_json_response(raw: str, fallback: dict) -> dict:
 
 
 async def _chat(prompt: str, temperature: float = 0.1, max_tokens: int = 1024) -> str:
-    """Send a chat completion request to OpenRouter."""
+    """Send a chat completion request to Google Gemini API directly."""
     async with httpx.AsyncClient(timeout=25.0) as client:
         response = await client.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-                "Content-Type": "application/json",
-            },
+            GEMINI_URL,
+            params={"key": GEMINI_API_KEY},
+            headers={"Content-Type": "application/json"},
             json={
-                "model": MODEL,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": prompt},
+                "system_instruction": {
+                    "parts": [{"text": SYSTEM_PROMPT}]
+                },
+                "contents": [
+                    {
+                        "role": "user",
+                        "parts": [{"text": prompt}],
+                    }
                 ],
-                "temperature": temperature,
-                "max_tokens": max_tokens,
+                "generationConfig": {
+                    "temperature": temperature,
+                    "maxOutputTokens": max_tokens,
+                },
             },
         )
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["message"]["content"]
+        return data["candidates"][0]["content"]["parts"][0]["text"]
 
 
 # ---------------------------------------------------------------------------
@@ -141,8 +145,8 @@ Respond ONLY with valid JSON:
         "follow_up_suggestions": ["Can you explain that in simpler words?"],
     }
 
-    if not OPENROUTER_API_KEY:
-        logger.warning("OPENROUTER_API_KEY not set — returning fallback")
+    if not GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY not set — returning fallback")
         return fallback
 
     try:
@@ -194,8 +198,8 @@ Respond ONLY with valid JSON:
         },
     }
 
-    if not OPENROUTER_API_KEY:
-        logger.warning("OPENROUTER_API_KEY not set — returning fallback")
+    if not GEMINI_API_KEY:
+        logger.warning("GEMINI_API_KEY not set — returning fallback")
         return fallback
 
     try:

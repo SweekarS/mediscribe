@@ -7,7 +7,7 @@ import SimpleModal from '../components/SimpleModal'
 import BrandMark from '../components/BrandMark'
 import { useToast } from '../context/ToastContext'
 
-const GITHUB_RELEASES_URL = 'https://github.com/Sabalpp/HOOHACKS/releases/latest'
+const GITHUB_RELEASES_URL = 'https://github.com/SweekarS/mediscribe/releases/latest'
 
 export default function LandingPage() {
   const [privacyOpen, setPrivacyOpen] = useState(false)
