@@ -7,7 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setOverlayOpacity: (opacity) => ipcRenderer.send('overlay:set-opacity', opacity),
   pauseWidget: () => ipcRenderer.send('widget:pause'),
   resumeWidget: () => ipcRenderer.send('widget:resume'),
-  expandWidget: () => ipcRenderer.send('widget:expand'),
 
   onOverlayVisibilityChanged: (callback) => {
     const handler = (_event, visible) => callback(visible)
@@ -24,10 +23,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('widget:resume', handler)
     return () => ipcRenderer.removeListener('widget:resume', handler)
   },
-  onWidgetExpand: (callback) => {
+  onWidgetAttentionStart: (callback) => {
     const handler = () => callback()
-    ipcRenderer.on('widget:expand', handler)
-    return () => ipcRenderer.removeListener('widget:expand', handler)
+    ipcRenderer.on('widget:attention-start', handler)
+    return () => ipcRenderer.removeListener('widget:attention-start', handler)
+  },
+  onWidgetAttentionStop: (callback) => {
+    const handler = () => callback()
+    ipcRenderer.on('widget:attention-stop', handler)
+    return () => ipcRenderer.removeListener('widget:attention-stop', handler)
   },
 
   // --- Session lifecycle ---

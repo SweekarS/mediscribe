@@ -25,10 +25,59 @@ let overlayWindow = null
 let tray = null
 let overlayVisible = false
 let widgetPaused = false
+let trayState = 'idle' // idle | live_pending_attention | live
+let attentionInterval = null
+let unreadBadge = false
+
+const WIDGET_WIDTH = 350
+const WIDGET_HEIGHT = 210
+const WIDGET_MARGIN = 18
 
 function sendToOverlay(channel, ...args) {
   if (!overlayWindow || overlayWindow.isDestroyed()) return
   overlayWindow.webContents.send(channel, ...args)
+}
+
+function applyTrayIcon() {
+  if (!tray) return
+  if (trayState === 'live_pending_attention') return
+  if (trayState === 'live') {
+    tray.setImage(getTrayIcon(true))
+    return
+  }
+  tray.setImage(getTrayIcon(unreadBadge))
+}
+
+function stopAttentionPulse() {
+  if (attentionInterval) {
+    clearInterval(attentionInterval)
+    attentionInterval = null
+  }
+  if (trayState === 'live_pending_attention') {
+    trayState = 'live'
+  }
+  applyTrayIcon()
+  sendToOverlay('widget:attention-stop')
+}
+
+function startAttentionPulse() {
+  stopAttentionPulse()
+  trayState = 'live_pending_attention'
+  sendToOverlay('widget:attention-start')
+
+  let ticks = 0
+  let on = false
+  attentionInterval = setInterval(() => {
+    if (!tray) return
+    on = !on
+    tray.setImage(getTrayIcon(on))
+    ticks += 1
+    if (ticks >= 14) {
+      // ~5.6s at 400ms pulse interval
+      stopAttentionPulse()
+      updateTrayMenu()
+    }
+  }, 400)
 }
 
 // -------------------------------------------------------------------------
@@ -40,14 +89,29 @@ function getTrayIcon(badge = false) {
   const name = badge
     ? (isMac ? 'tray-icon-badgeTemplate.png' : 'tray-icon-badge.png')
     : (isMac ? 'tray-iconTemplate.png' : 'tray-icon.png')
-  return nativeImage.createFromPath(path.join(assetsPath, name))
+  const primary = nativeImage.createFromPath(path.join(assetsPath, name))
+  if (!primary.isEmpty()) return primary
+
+  // Fallback to app icon if tray template asset is unavailable.
+  const fallback = nativeImage.createFromPath(path.join(assetsPath, 'icon.png'))
+  return fallback.isEmpty() ? nativeImage.createEmpty() : fallback.resize({ width: 18, height: 18 })
 }
 
 function updateTrayMenu() {
   if (!tray) return
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: overlayVisible ? 'Hide Overlay' : 'Show Overlay',
+      label: 'Show Widget',
+      enabled: !overlayVisible,
+      click: showOverlay,
+    },
+    {
+      label: 'Hide Widget',
+      enabled: overlayVisible,
+      click: hideOverlay,
+    },
+    {
+      label: 'Toggle Widget',
       click: toggleOverlay,
       accelerator: 'CommandOrControl+Shift+M',
     },
@@ -57,13 +121,6 @@ function updateTrayMenu() {
         widgetPaused = !widgetPaused
         sendToOverlay(widgetPaused ? 'widget:pause' : 'widget:resume')
         updateTrayMenu()
-      },
-    },
-    {
-      label: 'Expand Widget',
-      click: () => {
-        showOverlay()
-        sendToOverlay('widget:expand')
       },
     },
     { type: 'separator' },
@@ -85,6 +142,7 @@ function updateTrayMenu() {
 function createTray() {
   tray = new Tray(getTrayIcon())
   tray.setToolTip('MediScribe')
+  applyTrayIcon()
   updateTrayMenu()
   tray.on('click', toggleOverlay)
 }
@@ -144,17 +202,19 @@ function createOverlayWindow() {
   const { width: screenW } = screen.getPrimaryDisplay().workAreaSize
 
   overlayWindow = new BrowserWindow({
-    width: 380,
-    height: 580,
-    x: screenW - 400,
-    y: 60,
+    width: WIDGET_WIDTH,
+    height: WIDGET_HEIGHT,
+    x: screenW - WIDGET_WIDTH - WIDGET_MARGIN,
+    y: WIDGET_MARGIN,
     show: false,
-    frame: false,
+    frame: process.platform === 'darwin',
+    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : undefined,
+    trafficLightPosition: process.platform === 'darwin' ? { x: 12, y: 12 } : undefined,
     transparent: true,
     alwaysOnTop: true,
     resizable: true,
     skipTaskbar: true,
-    hasShadow: false,
+    hasShadow: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -250,11 +310,6 @@ app.whenReady().then(() => {
     updateTrayMenu()
   })
 
-  ipcMain.on('widget:expand', () => {
-    showOverlay()
-    sendToOverlay('widget:expand')
-  })
-
   ipcMain.on('overlay:resize', (_event, { width, height }) => {
     if (!overlayWindow) return
     overlayWindow.setSize(width, height)
@@ -268,22 +323,28 @@ app.whenReady().then(() => {
   // --- Session lifecycle IPC (broadcast between main ↔ overlay windows) ---
 
   ipcMain.on('session:start', () => {
+    trayState = 'live'
+    startAttentionPulse()
     overlayWindow?.webContents.send('session:started')
     mainWindow?.webContents.send('session:started')
     showOverlay()
   })
 
   ipcMain.on('session:end', () => {
+    trayState = 'idle'
+    stopAttentionPulse()
     overlayWindow?.webContents.send('session:ended')
     mainWindow?.webContents.send('session:ended')
     hideOverlay()
+    applyTrayIcon()
+    updateTrayMenu()
   })
 
   // --- Tray badge IPC ---
 
   ipcMain.on('tray:set-badge', (_event, hasBadge) => {
-    if (!tray) return
-    tray.setImage(getTrayIcon(hasBadge))
+    unreadBadge = hasBadge
+    applyTrayIcon()
   })
 
   // --- Permission status check ---

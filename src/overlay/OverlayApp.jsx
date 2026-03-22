@@ -15,9 +15,8 @@ const LANGUAGES = [
   { code: 'ne', label: 'नेपाली' },
 ]
 
-const COMPACT_HEIGHT = 200
-const FULL_HEIGHT = 580
-const FULL_WIDTH = 380
+const WIDGET_WIDTH = 350
+const WIDGET_HEIGHT = 210
 
 export default function OverlayApp() {
   const [messages, setMessages] = useState([])
@@ -31,7 +30,7 @@ export default function OverlayApp() {
   const [activeTab, setActiveTab] = useState('transcript')
   const [listening, setListening] = useState(false)
   const [status, setStatus] = useState('')
-  const [compact, setCompact] = useState(true)
+  const [compact] = useState(true)
   const [opacity, setOpacity] = useState(1)
   const [showSettings, setShowSettings] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -58,11 +57,17 @@ export default function OverlayApp() {
       setWidgetPaused(false)
       setStatus((prev) => (prev === 'Paused' ? 'Live' : prev))
     })
-    const cleanupExpand = window.electronAPI?.onWidgetExpand?.(() => setCompact(false))
+    const cleanupAttentionStart = window.electronAPI?.onWidgetAttentionStart?.(() => {
+      setStatus((prev) => (prev?.startsWith('Live') ? 'Live • Active' : prev))
+    })
+    const cleanupAttentionStop = window.electronAPI?.onWidgetAttentionStop?.(() => {
+      setStatus((prev) => (prev === 'Live • Active' ? 'Live' : prev))
+    })
     return () => {
       cleanupPause?.()
       cleanupResume?.()
-      cleanupExpand?.()
+      cleanupAttentionStart?.()
+      cleanupAttentionStop?.()
     }
   }, [])
 
@@ -85,7 +90,7 @@ export default function OverlayApp() {
   }, [messages.length])
 
   useEffect(() => {
-    window.electronAPI?.resizeOverlay?.(FULL_WIDTH, compact ? COMPACT_HEIGHT : FULL_HEIGHT)
+    window.electronAPI?.resizeOverlay?.(WIDGET_WIDTH, WIDGET_HEIGHT)
   }, [compact])
 
   useEffect(() => {
@@ -276,7 +281,7 @@ export default function OverlayApp() {
     return (
       <div className="w-full h-screen flex flex-col select-none" style={{ WebkitAppRegion: 'drag' }}>
         <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-[#0d1117]/95 text-white backdrop-blur-xl border border-white/10 shadow-2xl">
-          <TitleBar compact={compact} setCompact={setCompact} showSettings={showSettings} setShowSettings={setShowSettings} listening={listening} status={status} />
+          <TitleBar showSettings={showSettings} setShowSettings={setShowSettings} listening={listening} status={status} />
 
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ WebkitAppRegion: 'no-drag' }}>
             <div className="rounded-xl border border-white/10 bg-white/5 p-3">
@@ -333,7 +338,7 @@ export default function OverlayApp() {
   return (
     <div className="w-full h-screen flex flex-col select-none" style={{ WebkitAppRegion: 'drag' }}>
       <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-[#0d1117]/95 text-white backdrop-blur-xl border border-white/10 shadow-2xl">
-        <TitleBar compact={compact} setCompact={setCompact} showSettings={showSettings} setShowSettings={setShowSettings} listening={listening} status={status} />
+        <TitleBar showSettings={showSettings} setShowSettings={setShowSettings} listening={listening} status={status} />
 
         {compact && (
           <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2" style={{ WebkitAppRegion: 'no-drag' }}>
@@ -342,9 +347,6 @@ export default function OverlayApp() {
             </button>
             <button onClick={togglePauseCapture} className={`rounded px-2 py-1 text-[10px] font-semibold ${widgetPaused ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/80'}`}>
               {widgetPaused ? 'Resume' : 'Pause'}
-            </button>
-            <button onClick={() => setCompact(false)} className="rounded bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/80">
-              Expand
             </button>
           </div>
         )}
@@ -433,7 +435,7 @@ export default function OverlayApp() {
   )
 }
 
-function TitleBar({ compact, setCompact, showSettings, setShowSettings, listening, status }) {
+function TitleBar({ showSettings, setShowSettings, listening, status }) {
   return (
     <div className="flex items-center justify-between px-4 py-2.5 bg-[#010409] border-b border-white/10">
       <div className="flex items-center gap-2">
@@ -445,10 +447,6 @@ function TitleBar({ compact, setCompact, showSettings, setShowSettings, listenin
         <button onClick={() => setShowSettings(!showSettings)} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors" title="Settings">
           <span className="material-symbols-outlined text-[14px]">tune</span>
         </button>
-        <button onClick={() => setCompact(!compact)} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors" title={compact ? 'Expand' : 'Compact'}>
-          <span className="material-symbols-outlined text-[14px]">{compact ? 'expand_content' : 'collapse_content'}</span>
-        </button>
-        <button onClick={() => window.electronAPI?.toggleOverlay(false)} className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/10 text-white/60 hover:text-white transition-colors text-sm" title="Minimize">−</button>
       </div>
     </div>
   )
