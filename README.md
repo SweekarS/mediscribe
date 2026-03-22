@@ -187,8 +187,7 @@ HOOHACKS/
 │   │   ├── LandingPage.jsx      # Marketing landing page
 │   │   ├── LoginPage.jsx        # Auth page (demo mode)
 │   │   └── dashboard/
-│   │       ├── LiveConsultation.jsx  # Two-client mode (create/join)
-│   │       ├── RealTimeTalk.jsx      # Single-computer mode (VAD + PTT)
+│   │       ├── LiveConsultation.jsx  # Remote visit (create/join) + Solo demo (dual VAD / PTT)
 │   │       ├── HistoryPage.jsx       # Past sessions + AI summaries
 │   │       ├── PatientsPage.jsx      # Patient profile
 │   │       └── SettingsPage.jsx      # Preferences (language, mic, display)
@@ -229,6 +228,18 @@ HOOHACKS/
 | `ar` | Arabic |
 | `hi` | Hindi |
 | `ne` | Nepali |
+
+---
+
+## Brand assets (logo & favicon)
+
+Single source file: `public/logo-source.png`. Replace it with your mark, then run:
+
+```bash
+npm run make:favicon
+```
+
+This regenerates `public/favicon.png`, copies the source to `public/mediscribe-logo.png` for the UI, writes `electron/assets/icon.png`, and all tray PNGs under `electron/assets/`. The favicon and app icon are the same square letterboxed render of the full logo (not a circular crop), matching what you see in the UI.
 
 ---
 

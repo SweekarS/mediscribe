@@ -47,18 +47,18 @@ Wait for: `Local: http://localhost:5173/`
 
 ---
 
-## 3. Demo Flow A — Real-Time Talk (Single Computer)
+## 3. Demo Flow A — Solo demo (single computer)
 
-This is the developer-facing page. One person controls both the patient and doctor sides.
+From the dashboard, one person can control both the patient and doctor sides.
 
 ### Open it
 
-Navigate to `http://localhost:5173/dashboard/talk`
+Navigate to `http://localhost:5173/dashboard`, choose **Solo demo**, then **Start solo session**.
 
 ### Start a session
 
-1. Pick a patient language from the dropdown (Spanish is the best demo language)
-2. Click **Start Session**
+1. Pick a patient language (Spanish is the best demo language)
+2. Click **Start solo session**
 3. Status changes to **Connected** then **Ready**
 
 ### Demo the Doctor typing (Mode 1 — Simplify + Translate)
@@ -259,7 +259,7 @@ A typical 3-minute demo with 10-15 exchanges costs ~25-40 API calls total.
 **[0:30 — 1:00] Show the landing page**
 > Open `localhost:5173`. Walk through the hero, the "How it works" section, and the tech stack logos.
 
-**[1:00 — 2:00] Live demo on Real-Time Talk**
+**[1:00 — 2:00] Live demo on Solo demo (dashboard → Solo demo)**
 > Start a session in Spanish. Type a complex doctor message. Show the simplification + translation + audio. Then speak into the patient mic in Spanish. Show the grammar recovery + medical flags.
 
 **[2:00 — 2:30] Show the Insights sidebar**

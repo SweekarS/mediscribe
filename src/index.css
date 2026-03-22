@@ -76,5 +76,50 @@
   animation: clinical-pulse 2s infinite;
 }
 
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 0.85s step-end infinite;
+}
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-float-in {
+  animation: float-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+.medical-highlight {
+  background: linear-gradient(120deg, rgba(0, 94, 184, 0.1) 0%, rgba(0, 108, 80, 0.1) 100%);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-weight: 600;
+}
+
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-blink,
+  .animate-float-in,
+  .animate-shimmer,
+  .pulse-active {
+    animation: none;
+  }
+}

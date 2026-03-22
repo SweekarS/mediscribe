@@ -1,9 +1,9 @@
 const SIZE_CLASSES = {
-  sm: 'h-6 w-6',
-  md: 'h-8 w-8',
-  lg: 'h-10 w-10',
-  xl: 'h-14 w-14',
-  '2xl': 'h-20 w-20',
+  sm: 'h-8 w-8',
+  md: 'h-10 w-10',
+  lg: 'h-12 w-12',
+  xl: 'h-16 w-16',
+  '2xl': 'h-24 w-24',
 }
 
 /**
@@ -24,7 +24,7 @@ export default function BrandMark({
 
   const img = (
     <img
-      src="/mediscribe-logo.png"
+      src="/mediscribe-logo.png?v=8"
       alt={showWordmark ? '' : 'MediScribe'}
       className={`${dim} object-contain ${imgClassName}`}
       decoding="async"
@@ -36,7 +36,7 @@ export default function BrandMark({
   }
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
+    <div className={`flex items-center gap-3 ${className}`}>
       <div className={`shrink-0 ${chip}`}>{img}</div>
       {showWordmark ? <span className={wordmarkClassName}>MediScribe</span> : null}
     </div>

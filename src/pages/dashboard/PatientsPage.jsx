@@ -63,7 +63,6 @@ export default function PatientsPage() {
 
       <div className="flex-1 overflow-y-auto p-8">
         <form onSubmit={handleSave} className="mx-auto max-w-2xl space-y-8">
-          {/* Profile header */}
           <div className="flex items-center gap-5">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-container text-2xl font-black text-on-primary-container">
               {form.firstName[0]}{form.lastName[0]}
@@ -74,7 +73,6 @@ export default function PatientsPage() {
             </div>
           </div>
 
-          {/* Personal */}
           <Section title="Personal information">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Field label="First name" value={form.firstName} onChange={set('firstName')} disabled={!editing} />
@@ -90,7 +88,7 @@ export default function PatientsPage() {
                   value={form.preferredLanguage}
                   onChange={set('preferredLanguage')}
                   disabled={!editing}
-                  className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface disabled:opacity-70"
+                  className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-70"
                 >
                   {LANGUAGES.map((l) => (
                     <option key={l.code} value={l.code}>{l.label}</option>
@@ -100,7 +98,6 @@ export default function PatientsPage() {
             </div>
           </Section>
 
-          {/* Medical */}
           <Section title="Medical information">
             <div className="space-y-4">
               <Field label="Known allergies" value={form.allergies} onChange={set('allergies')} disabled={!editing} />
@@ -109,7 +106,6 @@ export default function PatientsPage() {
             </div>
           </Section>
 
-          {/* Emergency contact */}
           <Section title="Emergency contact">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
               <Field label="Name" value={form.emergencyName} onChange={set('emergencyName')} disabled={!editing} />
@@ -157,7 +153,7 @@ function Field({ label, className = '', ...props }) {
         {label}
       </label>
       <input
-        className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface disabled:opacity-70"
+        className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none disabled:opacity-70"
         {...props}
       />
     </div>

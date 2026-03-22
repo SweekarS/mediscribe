@@ -355,7 +355,7 @@ function TitleBar({ compact, setCompact, showSettings, setShowSettings, listenin
     <div className="flex items-center justify-between px-4 py-2.5 bg-[#010409] border-b border-white/10">
       <div className="flex items-center gap-2">
         <span className={`h-2 w-2 shrink-0 rounded-full ${listening ? 'bg-emerald-400 animate-pulse' : 'bg-white/30'}`} />
-        <BrandMark size="sm" showWordmark wordmarkClassName="text-xs font-semibold tracking-wide uppercase text-white/90" imgClassName="brightness-0 invert opacity-95" />
+        <BrandMark size="sm" showWordmark wordmarkClassName="text-xs font-semibold tracking-wide uppercase text-white/90" imgClassName="opacity-95 drop-shadow-[0_0_6px_rgba(0,109,104,0.45)]" />
         {status && <span className="text-[10px] text-white/40 ml-1 truncate max-w-[120px]">{status}</span>}
       </div>
       <div className="flex items-center gap-1" style={{ WebkitAppRegion: 'no-drag' }}>

@@ -4,8 +4,10 @@
   "version": "0.1.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Sabalpp/MediScribe.git"
+    "url": "https://github.com/Sabalpp/HOOHACKS.git"
   },
+  "description": "Real-time medical translation overlay for doctor-patient calls",
+  "author": "MediScribe Team",
   "type": "module",
   "main": "electron/main.js",
   "scripts": {
@@ -15,7 +17,9 @@
     "preview": "vite preview",
     "electron:dev": "vite & sleep 2 && electron .",
     "electron:build": "vite build && electron-builder",
-    "make:icons": "node electron/create-tray-icon.js"
+    "make:icons": "node electron/create-tray-icon.js",
+    "make:favicon": "python3 scripts/generate-favicon.py",
+    "make:brand-assets": "python3 scripts/generate-favicon.py"
   },
   "build": {
     "appId": "com.mediscribe.app",
@@ -32,8 +36,7 @@
       "target": ["dmg", "zip"],
       "icon": "electron/assets/icon.png",
       "category": "public.app-category.medical",
-      "entitlements": "electron/entitlements.mac.plist",
-      "entitlementsInherit": "electron/entitlements.mac.plist",
+      "identity": null,
       "extendInfo": {
         "NSMicrophoneUsageDescription": "MediScribe needs microphone access for live medical translation during your visit.",
         "NSDesktopFolderUsageDescription": "MediScribe needs access to provide overlay features."

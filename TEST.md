@@ -1,4 +1,4 @@
-# Testing Guide — MediScribe Real-Time Talk
+# Testing Guide — MediScribe Live session
 
 ## Architecture Overview
 
@@ -55,11 +55,11 @@ Expected: `{"status": "ok", "service": "VoiceBridge API"}`
 
 ---
 
-## Test 2: Open Real-Time Talk
+## Test 2: Open Solo demo
 
-1. Open **http://localhost:5173/dashboard/talk** in Chrome
-2. Pick a patient language (Spanish, Hindi, Nepali, etc.)
-3. Click **Start Session**
+1. Open **http://localhost:5173/dashboard** in Chrome
+2. Choose **Solo demo**, pick a patient language (Spanish, Hindi, Nepali, etc.)
+3. Click **Start solo session**
 4. Status should show "Ready"
 
 ---

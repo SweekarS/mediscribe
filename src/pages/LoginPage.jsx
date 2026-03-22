@@ -27,6 +27,7 @@ export default function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden bg-surface text-on-surface md:flex-row">
+      {/* ── Left branded panel ── */}
       <div className="relative hidden flex-col justify-between overflow-hidden bg-primary p-12 md:flex md:w-1/2 lg:w-3/5">
         <div className="pointer-events-none absolute inset-0 opacity-10">
           <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
@@ -38,12 +39,12 @@ export default function LoginPage() {
             <rect width="100%" height="100%" fill="url(#grid)" />
           </svg>
         </div>
-        <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-secondary-container opacity-20 blur-[120px]"></div>
-        <div className="absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full bg-primary-container opacity-30 blur-[150px]"></div>
+        <div className="absolute -left-24 -top-24 h-96 w-96 rounded-full bg-secondary-container opacity-20 blur-[120px]" />
+        <div className="absolute bottom-0 right-0 h-[500px] w-[500px] rounded-full bg-primary-container opacity-30 blur-[150px]" />
 
         <div className="relative z-10">
           <Link to="/" className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-white p-1.5 shadow-sm">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-white p-2 shadow-sm">
               <BrandMark bare size="md" />
             </div>
             <span className="text-2xl font-black tracking-tighter text-white">MediScribe</span>
@@ -72,6 +73,7 @@ export default function LoginPage() {
         </div>
       </div>
 
+      {/* ── Right form panel ── */}
       <div className="flex flex-1 items-center justify-center bg-surface-container p-6 md:p-12 lg:p-24">
         <div className="w-full max-w-md">
           <div className="mb-12 flex items-center gap-2 md:hidden">
@@ -79,7 +81,7 @@ export default function LoginPage() {
             <span className="text-xl font-black tracking-tighter text-on-surface">MediScribe</span>
           </div>
 
-          <div className="rounded-lg bg-surface-container-lowest p-8 shadow-[0px_20px_40px_rgba(25,28,29,0.04)] lg:p-10">
+          <div className="rounded-2xl bg-surface-container-lowest p-8 shadow-[0px_20px_40px_rgba(25,28,29,0.04)] lg:p-10">
             <div className="mb-10">
               <h2 className="mb-2 text-2xl font-bold tracking-tight text-on-surface">Sign in to your visit</h2>
               <p className="text-sm text-on-surface-variant">Enter your details to access your care dashboard.</p>
@@ -98,7 +100,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@email.com"
-                  className="w-full rounded-t-lg border-0 border-b-2 border-transparent bg-surface-container-low px-4 py-3.5 text-on-surface transition-all placeholder:text-outline/50 focus:border-primary focus:ring-0 focus:outline-none"
+                  className="w-full rounded-lg border-0 border-b-2 border-transparent bg-surface-container-low px-4 py-3.5 text-on-surface transition-all placeholder:text-outline/50 focus:border-primary focus:outline-none focus:ring-0"
                 />
               </div>
 
@@ -123,7 +125,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full rounded-t-lg border-0 border-b-2 border-transparent bg-surface-container-low px-4 py-3.5 text-on-surface transition-all placeholder:text-outline/50 focus:border-primary focus:ring-0 focus:outline-none"
+                  className="w-full rounded-lg border-0 border-b-2 border-transparent bg-surface-container-low px-4 py-3.5 text-on-surface transition-all placeholder:text-outline/50 focus:border-primary focus:outline-none focus:ring-0"
                 />
               </div>
 
@@ -146,11 +148,11 @@ export default function LoginPage() {
               </div>
 
               <div className="relative flex items-center py-4">
-                <div className="flex-grow border-t border-outline-variant/30"></div>
+                <div className="flex-grow border-t border-outline-variant/30" />
                 <span className="mx-4 shrink-0 text-[0.6875rem] font-bold uppercase tracking-widest text-outline">
                   Or continue with
                 </span>
-                <div className="flex-grow border-t border-outline-variant/30"></div>
+                <div className="flex-grow border-t border-outline-variant/30" />
               </div>
 
               <button
@@ -191,6 +193,7 @@ export default function LoginPage() {
         </div>
       </div>
 
+      {/* Floating pill (desktop only) */}
       <div className="absolute bottom-12 left-1/2 z-20 hidden -translate-x-1/2 lg:block">
         <div className="flex max-w-xs items-center gap-4 rounded-xl border border-white/20 bg-surface/70 p-4 shadow-2xl backdrop-blur-xl">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-secondary-container">
@@ -201,7 +204,7 @@ export default function LoginPage() {
             <div className="text-sm font-bold text-on-surface">Ready when you are</div>
           </div>
           <div className="ml-auto flex gap-1">
-            <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-secondary"></div>
+            <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-secondary" />
           </div>
         </div>
       </div>

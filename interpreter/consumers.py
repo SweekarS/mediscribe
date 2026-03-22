@@ -22,12 +22,17 @@ PATIENT → DOCTOR flow:
 import json
 import logging
 import asyncio
+import time
 from channels.generic.websocket import AsyncWebsocketConsumer
 
 from .gemini_client import process_doctor_to_patient, process_patient_to_doctor
 from .elevenlabs_client import synthesize_speech
 
 logger = logging.getLogger(__name__)
+
+MAX_AUDIO_BYTES = 5 * 1024 * 1024  # 5 MB per audio chunk
+WS_MSG_RATE_LIMIT = 30  # max messages per window
+WS_MSG_RATE_WINDOW = 10  # seconds
 
 
 def _multipart_audio_part(audio_bytes: bytes):
@@ -43,6 +48,7 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
         self._pending_direction = None
         self._pending_language = None
+        self._msg_timestamps = []
 
         # Load actual patient language from the session in DB
         from asgiref.sync import sync_to_async
@@ -68,7 +74,23 @@ class InterpreterConsumer(AsyncWebsocketConsumer):
         await self.channel_layer.group_discard(self.group_name, self.channel_name)
         logger.info(f"WebSocket disconnected: session={self.session_id}, code={close_code}")
 
+    def _is_rate_limited(self) -> bool:
+        now = time.monotonic()
+        self._msg_timestamps = [t for t in self._msg_timestamps if now - t < WS_MSG_RATE_WINDOW]
+        if len(self._msg_timestamps) >= WS_MSG_RATE_LIMIT:
+            return True
+        self._msg_timestamps.append(now)
+        return False
+
     async def receive(self, text_data=None, bytes_data=None):
+        if self._is_rate_limited():
+            await self._send_error("Rate limit exceeded — slow down.")
+            return
+
+        if bytes_data and len(bytes_data) > MAX_AUDIO_BYTES:
+            await self._send_error("Audio chunk too large.")
+            return
+
         if text_data:
             try:
                 payload = json.loads(text_data)

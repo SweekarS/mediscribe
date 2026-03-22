@@ -43,8 +43,6 @@ export default function SettingsPage() {
 
       <div className="flex-1 overflow-y-auto p-8">
         <div className="mx-auto max-w-2xl space-y-6">
-
-          {/* Language */}
           <Card title="Language" icon="translate">
             <label className="mb-1.5 block text-[0.6875rem] font-bold uppercase tracking-wider text-outline">
               Default patient language
@@ -52,7 +50,7 @@ export default function SettingsPage() {
             <select
               value={language}
               onChange={(e) => setLanguage(e.target.value)}
-              className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface"
+              className="w-full rounded-lg border border-outline-variant/30 bg-surface-container-lowest px-4 py-3 text-sm text-on-surface focus:border-primary focus:outline-none"
             >
               {LANGUAGES.map((l) => (
                 <option key={l.code} value={l.code}>{l.label}</option>
@@ -61,7 +59,6 @@ export default function SettingsPage() {
             <p className="mt-2 text-xs text-outline">This will be pre-selected when starting new sessions.</p>
           </Card>
 
-          {/* Audio & Input */}
           <Card title="Audio & Input" icon="mic">
             <div className="space-y-4">
               <Toggle label="Auto-play translated audio" description="Automatically play TTS audio when a translation arrives" checked={autoPlay} onChange={setAutoPlay} />
@@ -80,7 +77,6 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* Display */}
           <Card title="Display" icon="visibility">
             <div className="space-y-4">
               <Toggle label="Show raw translation" description="Display the raw English translation before grammar recovery" checked={showRaw} onChange={setShowRaw} />
@@ -98,17 +94,15 @@ export default function SettingsPage() {
             </div>
           </Card>
 
-          {/* Notifications */}
           <Card title="Notifications" icon="notifications">
             <Toggle label="Session notifications" description="Get notified when a session starts or ends" checked={notifications} onChange={setNotifications} />
           </Card>
 
-          {/* Actions */}
           <div className="flex items-center gap-3 pt-2">
             <button
               type="button"
               onClick={handleSave}
-              className="clinical-gradient rounded-lg px-6 py-3 text-sm font-bold text-white shadow-sm"
+              className="clinical-gradient rounded-lg px-6 py-3 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
             >
               Save preferences
             </button>

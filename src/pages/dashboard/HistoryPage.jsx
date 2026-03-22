@@ -26,12 +26,8 @@ export default function HistoryPage() {
     load()
   }, [showToast])
 
-  const toggleExpand = async (id) => {
-    if (expanded === id) {
-      setExpanded(null)
-      return
-    }
-    setExpanded(id)
+  const toggleExpand = (id) => {
+    setExpanded(expanded === id ? null : id)
   }
 
   const deleteSession = async (id) => {
@@ -85,7 +81,7 @@ export default function HistoryPage() {
             <span className="material-symbols-outlined text-5xl text-outline-variant">history</span>
             <h2 className="text-lg font-bold text-on-surface">No past visits yet</h2>
             <p className="max-w-sm text-sm text-on-surface-variant">
-              Once you complete a session in Real-Time Talk, it will appear here with the full transcript and AI summary.
+              Once you complete a live session (Remote visit or Solo demo), it will appear here with the full transcript and AI summary.
             </p>
           </div>
         ) : (

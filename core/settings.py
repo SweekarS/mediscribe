@@ -41,6 +41,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
+    "core.middleware.ElectronCORSMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
@@ -138,6 +139,11 @@ CORS_ALLOWED_ORIGINS = [
 ]
 CORS_ALLOW_ALL_ORIGINS = DEBUG
 
+# Electron desktop app sends Origin: null (file:// protocol) or no origin.
+# CORS_ALLOW_NULL_ORIGIN is not a django-cors-headers setting, so we handle
+# this via CORS_ALLOW_ALL_ORIGINS in debug, and a custom middleware in prod.
+CORS_ALLOW_CREDENTIALS = True
+
 # DRF defaults
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": [
@@ -147,7 +153,28 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.JSONParser",
         "rest_framework.parsers.MultiPartParser",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/minute",
+        "user": "120/minute",
+    },
 }
+
+# ---------------------------------------------------------------------------
+# Production security — only active when DEBUG is False
+# ---------------------------------------------------------------------------
+if not DEBUG:
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    CORS_ALLOW_ALL_ORIGINS = False
 
 LOGGING = {
     "version": 1,
