@@ -48,9 +48,7 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "installerIcon": "electron/assets/icon.png",
-      "uninstallerIcon": "electron/assets/icon.png"
+      "allowToChangeInstallationDirectory": true
     },
     "linux": {
       "target": ["AppImage"],
