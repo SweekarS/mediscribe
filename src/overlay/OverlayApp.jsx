@@ -24,25 +24,55 @@ export default function OverlayApp() {
   const [chatInput, setChatInput] = useState('')
   const [chatHistory, setChatHistory] = useState([])
   const [language, setLanguage] = useState('es')
-  const [role, setRole] = useState(null) // 'patient' | 'doctor'
+  const [role, setRole] = useState('patient') // 'patient' | 'doctor'
   const [sessionId, setSessionId] = useState('')
   const [joinCode, setJoinCode] = useState('')
   const [micMuted, setMicMuted] = useState(false)
   const [activeTab, setActiveTab] = useState('transcript')
   const [listening, setListening] = useState(false)
   const [status, setStatus] = useState('')
-  const [compact, setCompact] = useState(false)
+  const [compact, setCompact] = useState(true)
   const [opacity, setOpacity] = useState(1)
   const [showSettings, setShowSettings] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [widgetPaused, setWidgetPaused] = useState(false)
   const feedRef = useRef(null)
   const sessionRef = useRef(null)
   const audioRef = useRef(null)
+  const autoStartRef = useRef(false)
 
   useEffect(() => {
     const cleanupStart = window.electronAPI?.onSessionStarted?.(() => {})
     const cleanupEnd = window.electronAPI?.onSessionEnded?.(() => stopListening())
     return () => { cleanupStart?.(); cleanupEnd?.() }
   }, [])
+
+  useEffect(() => {
+    const cleanupPause = window.electronAPI?.onWidgetPause?.(() => {
+      callCapture.setCapturePaused(true)
+      setWidgetPaused(true)
+      setStatus('Paused')
+    })
+    const cleanupResume = window.electronAPI?.onWidgetResume?.(() => {
+      callCapture.setCapturePaused(false)
+      setWidgetPaused(false)
+      setStatus((prev) => (prev === 'Paused' ? 'Live' : prev))
+    })
+    const cleanupExpand = window.electronAPI?.onWidgetExpand?.(() => setCompact(false))
+    return () => {
+      cleanupPause?.()
+      cleanupResume?.()
+      cleanupExpand?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    // Widget-first behavior: auto start once on app launch.
+    if (autoStartRef.current || listening) return
+    autoStartRef.current = true
+    handleQuickStart()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listening])
 
   useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight
@@ -65,12 +95,23 @@ export default function OverlayApp() {
   const visibleMessages = compact ? messages.slice(-2) : messages
 
   async function handleCreate() {
-    if (!role) return
     try {
       setStatus('Creating session...')
       const session = await createSession({ providerId: 'doctor_1', patientLanguage: language })
       setSessionId(session.id)
-      connectToSession(session.id)
+      connectToSession(session.id, { useDualCapture: false })
+    } catch (err) {
+      setStatus(`Error: ${err.message}`)
+    }
+  }
+
+  async function handleQuickStart() {
+    try {
+      setStatus('Starting widget...')
+      const session = await createSession({ providerId: 'doctor_1', patientLanguage: language })
+      setRole('patient')
+      setSessionId(session.id)
+      connectToSession(session.id, { useDualCapture: true })
     } catch (err) {
       setStatus(`Error: ${err.message}`)
     }
@@ -83,7 +124,7 @@ export default function OverlayApp() {
     connectToSession(id)
   }
 
-  function connectToSession(id) {
+  function connectToSession(id, { useDualCapture = false } = {}) {
     setListening(true)
     setMessages([])
     setChatHistory([])
@@ -91,17 +132,40 @@ export default function OverlayApp() {
 
     const conn = connectSession({
       sessionId: id,
-      onOpen: () => {
+      onOpen: async () => {
         setStatus('Starting mic...')
-        callCapture.startMicOnly({
-          ws: conn.ws,
-          language,
-          role,
-        }).then(() => {
-          setStatus(`Live as ${role}`)
-        }).catch((err) => {
+        try {
+          if (useDualCapture) {
+            await callCapture.startDualCapture({
+              ws: conn.ws,
+              language,
+            })
+            setStatus('Live')
+          } else {
+            await callCapture.startMicOnly({
+              ws: conn.ws,
+              language,
+              role,
+            })
+            setStatus(`Live as ${role}`)
+          }
+        } catch (err) {
+          // Graceful fallback: if system capture fails, still run mic-only.
+          if (useDualCapture) {
+            try {
+              await callCapture.startMicOnly({
+                ws: conn.ws,
+                language,
+                role: 'patient',
+              })
+              setStatus('Live (mic-only fallback)')
+              return
+            } catch {
+              // continue to error state below
+            }
+          }
           setStatus(err.name === 'NotAllowedError' ? 'Mic denied' : 'Mic error')
-        })
+        }
       },
       onMessage: handleWsMessage,
       onClose: () => {
@@ -117,18 +181,30 @@ export default function OverlayApp() {
 
   function stopListening() {
     callCapture.stopAll()
+    callCapture.setCapturePaused(false)
+    setWidgetPaused(false)
     sessionRef.current?.close()
     sessionRef.current = null
     setListening(false)
     setStatus('')
     setSessionId('')
-    setRole(null)
+    setRole('patient')
+    autoStartRef.current = false
+  }
+
+  function togglePauseCapture() {
+    const next = !widgetPaused
+    callCapture.setCapturePaused(next)
+    setWidgetPaused(next)
+    setStatus(next ? 'Paused' : 'Live')
+    if (next) window.electronAPI?.pauseWidget?.()
+    else window.electronAPI?.resumeWidget?.()
   }
 
   function handleWsMessage(data) {
     switch (data.type) {
       case 'connection_established':
-        setStatus(`Live — ${role}`)
+        setStatus(widgetPaused ? 'Paused' : `Live — ${role}`)
         break
       case 'processing':
       case 'transcribing':
@@ -143,7 +219,7 @@ export default function OverlayApp() {
           medicalFlags: data.medical_flags,
           timestamp: data.timestamp || new Date().toLocaleTimeString(),
         }])
-        setStatus(`Live — ${role}`)
+        setStatus(widgetPaused ? 'Paused' : `Live — ${role}`)
         break
       case 'provider_message':
         setMessages((prev) => [...prev, {
@@ -155,7 +231,7 @@ export default function OverlayApp() {
           timestamp: data.timestamp || new Date().toLocaleTimeString(),
         }])
         if (data.audio_base64) playAudio(data.audio_base64)
-        setStatus(`Live — ${role}`)
+        setStatus(widgetPaused ? 'Paused' : `Live — ${role}`)
         break
       case 'error':
         setStatus(`Error: ${data.message}`)
@@ -202,57 +278,50 @@ export default function OverlayApp() {
         <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-[#0d1117]/95 text-white backdrop-blur-xl border border-white/10 shadow-2xl">
           <TitleBar compact={compact} setCompact={setCompact} showSettings={showSettings} setShowSettings={setShowSettings} listening={listening} status={status} />
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4" style={{ WebkitAppRegion: 'no-drag' }}>
-            {/* Role picker */}
-            <div className="space-y-2">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">I am the...</span>
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => setRole('patient')} className={`rounded-lg border py-3 text-xs font-bold transition ${role === 'patient' ? 'border-emerald-400 bg-emerald-500/15 text-emerald-300' : 'border-white/10 text-white/50 hover:border-white/30'}`}>
-                  Patient
-                </button>
-                <button onClick={() => setRole('doctor')} className={`rounded-lg border py-3 text-xs font-bold transition ${role === 'doctor' ? 'border-blue-400 bg-blue-500/15 text-blue-300' : 'border-white/10 text-white/50 hover:border-white/30'}`}>
-                  Doctor
+          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" style={{ WebkitAppRegion: 'no-drag' }}>
+            <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs font-semibold text-white/90">Widget ready</p>
+                  <p className="text-[10px] text-white/50">Auto translation starts with one click.</p>
+                </div>
+                <button
+                  onClick={handleQuickStart}
+                  className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition-colors hover:bg-emerald-500"
+                >
+                  Start
                 </button>
               </div>
             </div>
 
-            {role && (
-              <>
+            <button
+              onClick={() => setShowAdvanced((v) => !v)}
+              className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-[11px] font-semibold text-white/70 hover:text-white"
+            >
+              {showAdvanced ? 'Hide Advanced' : 'Show Advanced'}
+            </button>
+
+            {showAdvanced && (
+              <div className="space-y-3 rounded-xl border border-white/10 bg-white/5 p-3">
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-bold uppercase tracking-wider text-white/40">Patient language</span>
-                  <select value={language} onChange={(e) => setLanguage(e.target.value)} className="w-full bg-[#161b22] text-white text-xs rounded-lg px-3 py-2 border border-white/10 outline-none">
+                  <select value={language} onChange={(e) => setLanguage(e.target.value)} className="w-full rounded-lg border border-white/10 bg-[#161b22] px-3 py-2 text-xs text-white outline-none">
                     {LANGUAGES.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
                   </select>
                 </div>
 
                 <div className="space-y-2">
-                  <button onClick={handleCreate} className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg py-2.5 text-xs font-semibold transition-colors">
-                    Create session
+                  <button onClick={handleCreate} className="w-full rounded-lg bg-blue-600 py-2.5 text-xs font-semibold text-white transition-colors hover:bg-blue-500">
+                    Create session (manual)
                   </button>
-
-                  {sessionId && (
-                    <div className="rounded-lg bg-white/5 p-2 text-center">
-                      <span className="text-[9px] text-white/40">Share this code:</span>
-                      <div className="font-mono text-sm font-bold text-emerald-300 cursor-pointer" onClick={() => navigator.clipboard?.writeText(sessionId)}>
-                        {sessionId.slice(0, 8)}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center gap-2 py-1">
-                    <div className="flex-1 h-px bg-white/10" />
-                    <span className="text-[9px] text-white/30 uppercase">or join</span>
-                    <div className="flex-1 h-px bg-white/10" />
-                  </div>
-
                   <div className="flex gap-2">
-                    <input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleJoin()} placeholder="Session code..." className="flex-1 bg-[#161b22] text-white text-xs rounded-lg px-3 py-2 border border-white/10 outline-none placeholder-white/30" />
-                    <button onClick={handleJoin} className="bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 text-xs font-semibold transition-colors">
+                    <input type="text" value={joinCode} onChange={(e) => setJoinCode(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleJoin()} placeholder="Session code..." className="flex-1 rounded-lg border border-white/10 bg-[#161b22] px-3 py-2 text-xs text-white placeholder-white/30 outline-none" />
+                    <button onClick={handleJoin} className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500">
                       Join
                     </button>
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </div>
         </div>
@@ -265,6 +334,20 @@ export default function OverlayApp() {
     <div className="w-full h-screen flex flex-col select-none" style={{ WebkitAppRegion: 'drag' }}>
       <div className="flex flex-col h-full rounded-2xl overflow-hidden bg-[#0d1117]/95 text-white backdrop-blur-xl border border-white/10 shadow-2xl">
         <TitleBar compact={compact} setCompact={setCompact} showSettings={showSettings} setShowSettings={setShowSettings} listening={listening} status={status} />
+
+        {compact && (
+          <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2" style={{ WebkitAppRegion: 'no-drag' }}>
+            <button onClick={() => setMicMuted(!micMuted)} className={`rounded px-2 py-1 text-[10px] font-semibold ${micMuted ? 'bg-red-500/20 text-red-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
+              {micMuted ? 'Mic Off' : 'Mic On'}
+            </button>
+            <button onClick={togglePauseCapture} className={`rounded px-2 py-1 text-[10px] font-semibold ${widgetPaused ? 'bg-amber-500/20 text-amber-300' : 'bg-white/10 text-white/80'}`}>
+              {widgetPaused ? 'Resume' : 'Pause'}
+            </button>
+            <button onClick={() => setCompact(false)} className="rounded bg-white/10 px-2 py-1 text-[10px] font-semibold text-white/80">
+              Expand
+            </button>
+          </div>
+        )}
 
         {showSettings && (
           <div className="px-4 py-2 border-b border-white/5 space-y-2" style={{ WebkitAppRegion: 'no-drag' }}>

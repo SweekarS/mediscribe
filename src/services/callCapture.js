@@ -25,6 +25,7 @@ let activeLang = 'es'
 let activeRole = 'patient'
 let micMuted = false
 let systemMuted = false
+let capturePaused = false
 
 function recorderOptions() {
   return MediaRecorder.isTypeSupported(MIME_TYPE) ? { mimeType: MIME_TYPE } : {}
@@ -32,6 +33,7 @@ function recorderOptions() {
 
 function sendChunk(blob, direction) {
   if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return
+  if (capturePaused) return
   if (blob.size < 500) return
 
   activeWs.send(JSON.stringify({
@@ -175,8 +177,13 @@ export function setSystemMuted(value) {
   systemMuted = value
 }
 
+export function setCapturePaused(value) {
+  capturePaused = value
+}
+
 export function isMicMuted() { return micMuted }
 export function isSystemMuted() { return systemMuted }
+export function isCapturePaused() { return capturePaused }
 
 export function isCapturing() {
   return (

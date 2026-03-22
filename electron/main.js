@@ -24,6 +24,12 @@ let mainWindow = null
 let overlayWindow = null
 let tray = null
 let overlayVisible = false
+let widgetPaused = false
+
+function sendToOverlay(channel, ...args) {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return
+  overlayWindow.webContents.send(channel, ...args)
+}
 
 // -------------------------------------------------------------------------
 // Tray
@@ -44,6 +50,21 @@ function updateTrayMenu() {
       label: overlayVisible ? 'Hide Overlay' : 'Show Overlay',
       click: toggleOverlay,
       accelerator: 'CommandOrControl+Shift+M',
+    },
+    {
+      label: widgetPaused ? 'Resume Capture' : 'Pause Capture',
+      click: () => {
+        widgetPaused = !widgetPaused
+        sendToOverlay(widgetPaused ? 'widget:pause' : 'widget:resume')
+        updateTrayMenu()
+      },
+    },
+    {
+      label: 'Expand Widget',
+      click: () => {
+        showOverlay()
+        sendToOverlay('widget:expand')
+      },
     },
     { type: 'separator' },
     {
@@ -104,6 +125,7 @@ function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1440,
     height: 900,
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -126,6 +148,7 @@ function createOverlayWindow() {
     height: 580,
     x: screenW - 400,
     y: 60,
+    show: false,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -148,8 +171,11 @@ function createOverlayWindow() {
     overlayWindow.loadFile(path.join(__dirname, '..', 'dist', 'overlay.html'))
   }
 
-  overlayWindow.hide()
-  overlayVisible = false
+  overlayWindow.once('ready-to-show', () => {
+    overlayWindow.show()
+    overlayVisible = true
+    updateTrayMenu()
+  })
 }
 
 // -------------------------------------------------------------------------
@@ -210,6 +236,23 @@ app.whenReady().then(() => {
   ipcMain.on('overlay:toggle', (_event, show) => {
     if (show) showOverlay()
     else hideOverlay()
+  })
+
+  ipcMain.on('widget:pause', () => {
+    widgetPaused = true
+    sendToOverlay('widget:pause')
+    updateTrayMenu()
+  })
+
+  ipcMain.on('widget:resume', () => {
+    widgetPaused = false
+    sendToOverlay('widget:resume')
+    updateTrayMenu()
+  })
+
+  ipcMain.on('widget:expand', () => {
+    showOverlay()
+    sendToOverlay('widget:expand')
   })
 
   ipcMain.on('overlay:resize', (_event, { width, height }) => {
