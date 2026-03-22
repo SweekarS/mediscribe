@@ -19,7 +19,8 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+# Accept both common env names to avoid deployment mismatches.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
 MODEL = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 
@@ -85,6 +86,9 @@ def _parse_json_response(raw: str, fallback: dict) -> dict:
 
 async def _chat(prompt: str, temperature: float = 0.1, max_tokens: int = 1024) -> str:
     """Send a chat completion request to Google Gemini API directly."""
+    if not GEMINI_API_KEY:
+        raise RuntimeError("Missing GEMINI_API_KEY (or GOOGLE_API_KEY)")
+
     async with httpx.AsyncClient(timeout=25.0) as client:
         response = await client.post(
             GEMINI_URL,
@@ -146,7 +150,7 @@ Respond ONLY with valid JSON:
     }
 
     if not GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not set — returning fallback")
+        logger.warning("GEMINI key not set (GEMINI_API_KEY/GOOGLE_API_KEY) — returning fallback")
         return fallback
 
     try:
@@ -199,7 +203,7 @@ Respond ONLY with valid JSON:
     }
 
     if not GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not set — returning fallback")
+        logger.warning("GEMINI key not set (GEMINI_API_KEY/GOOGLE_API_KEY) — returning fallback")
         return fallback
 
     try:
@@ -242,7 +246,7 @@ Rules:
 """
 
     if not GEMINI_API_KEY:
-        logger.warning("GEMINI_API_KEY not set — returning fallback AI doctor question")
+        logger.warning("GEMINI key not set (GEMINI_API_KEY/GOOGLE_API_KEY) — returning fallback AI doctor question")
         return "Can you describe that symptom in a little more detail?"
 
     try:
